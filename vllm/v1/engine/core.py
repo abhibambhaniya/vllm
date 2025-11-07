@@ -316,12 +316,16 @@ class EngineCore:
         if not self.scheduler.has_requests():
             return {}, False
         scheduler_output = self.scheduler.schedule()
+        ## Starting Step Timer
+        start_time = time.perf_counter()
         future = self.model_executor.execute_model(scheduler_output, non_block=True)
         grammar_output = self.scheduler.get_grammar_bitmask(scheduler_output)
         with self.log_error_detail(scheduler_output):
             model_output = future.result()
             if model_output is None:
                 model_output = self.model_executor.sample_tokens(grammar_output)
+        end_time = time.perf_counter()
+        logger.info_once(f"Scheduler New:{[(new_reqs.num_computed_tokens, len(new_reqs.prompt_token_ids)) for new_reqs in scheduler_output.scheduled_new_reqs]};{scheduler_output.scheduled_cached_reqs.num_computed_tokens};{scheduler_output.scheduled_cached_reqs.num_output_tokens};{(end_time - start_time)*1000:.4f}")
 
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output
