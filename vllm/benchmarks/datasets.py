@@ -1239,6 +1239,7 @@ class ShareGPTDataset(BenchmarkDataset):
         enable_multimodal_chat: bool = False,
         request_id_prefix: str = "",
         no_oversample: bool = False,
+        min_input_tokens: int | None = None,
         **kwargs,
     ) -> list:
         samples: list = []
@@ -1261,8 +1262,8 @@ class ShareGPTDataset(BenchmarkDataset):
             if not is_valid_sequence(
                 prompt_len,
                 new_output_len,
-                skip_min_output_len_check=output_len is not None,
-            ):
+                skip_min_output_len_check=output_len is not None
+            ) or prompt_len < (min_input_tokens or 0):
                 continue
             if image_path := entry.get("image"):
                 mm_content = process_image(image_path)
@@ -1415,6 +1416,12 @@ def add_dataset_parser(parser: FlexibleArgumentParser):
         default=None,
         help="Output length for each request. Overrides the output length "
         "from the ShareGPT dataset.",
+    )
+    parser.add_argument(
+        "--min-input-tokens",
+        type=int,
+        default=None,
+        help="Minimum number of input tokens for each Request. "
     )
 
     blazedit_group = parser.add_argument_group("blazedit dataset options")
@@ -1827,6 +1834,7 @@ def get_samples(args, tokenizer) -> list[SampleRequest]:
                 output_len=args.sharegpt_output_len,
                 request_id_prefix=args.request_id_prefix,
                 no_oversample=args.no_oversample,
+                min_input_tokens=args.min_input_tokens,
             ),
             "burstgpt": lambda: BurstGPTDataset(
                 random_seed=args.seed,
