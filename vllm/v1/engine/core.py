@@ -13,7 +13,8 @@ from contextlib import ExitStack, contextmanager
 from inspect import isclass, signature
 from logging import DEBUG
 from typing import Any, TypeVar, cast
-
+import csv
+import torch
 import msgspec
 import zmq
 
@@ -196,6 +197,15 @@ class EngineCore:
             self.step if self.batch_queue is None else self.step_with_batch_queue
         )
 
+
+        # Write to CSV file
+        model_name = self.vllm_config.model_config.model.split("/")[-1]
+        TP = self.vllm_config.parallel_config.tensor_parallel_size
+        current_device = torch.cuda.current_device()
+        device = torch.cuda.get_device_name(current_device).replace(" ","_")
+        self.csv_filename = f"{model_name}_{device}_{TP}.csv"
+        logger.info(f"Writing to CSV file: {self.csv_filename}")
+
     def _initialize_kv_caches(
         self, vllm_config: VllmConfig
     ) -> tuple[int, int, KVCacheConfig]:
@@ -325,7 +335,41 @@ class EngineCore:
             if model_output is None:
                 model_output = self.model_executor.sample_tokens(grammar_output)
         end_time = time.perf_counter()
-        logger.info_once(f"Scheduler New:{[(new_reqs.num_computed_tokens, len(new_reqs.prompt_token_ids)) for new_reqs in scheduler_output.scheduled_new_reqs]};{scheduler_output.scheduled_cached_reqs.num_computed_tokens};{scheduler_output.scheduled_cached_reqs.num_output_tokens};{(end_time - start_time)*1000:.4f}")
+
+        prefill_data = [
+            (
+                new_reqs.num_computed_tokens,
+                len(new_reqs.prompt_token_ids)
+            ) for new_reqs in scheduler_output.scheduled_new_reqs
+        ]
+        cached_num_computed_tokens = scheduler_output.scheduled_cached_reqs.num_computed_tokens
+        cached_num_output_tokens = scheduler_output.scheduled_cached_reqs.num_output_tokens
+        elapsed_ms = (end_time - start_time) * 1000
+
+        # Write to CSV file
+        # Check if file exists, if not, create and write header
+        import os
+        import csv
+        # Ensure the directory exists before opening the file
+        file_exists = os.path.isfile(self.csv_filename)
+        with open(self.csv_filename, mode="a", newline="") as csvfile:
+            #  Pass delimiter here when creating the writer
+            writer = csv.writer(csvfile, delimiter=';')
+
+            if not file_exists:
+                # Remove delimiter from writerow()
+                writer.writerow(["Prefill",
+                                "Context", "Decode",
+                                "Time (ms)"])
+
+            # Remove delimiter from writerow()
+            writer.writerow([prefill_data, cached_num_computed_tokens,
+                                    cached_num_output_tokens,
+                                    f"{elapsed_ms:.4f}"])
+
+
+        # Optionally, still log to info_once if needed
+        # logger.info_once(f"Scheduler New:{csv_data};{cached_num_computed_tokens};{cached_num_output_tokens};{elapsed_ms:.4f}")
 
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output

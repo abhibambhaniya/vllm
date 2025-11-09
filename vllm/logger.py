@@ -45,18 +45,18 @@ DEFAULT_LOGGING_CONFIG = {
             "level": VLLM_LOGGING_LEVEL,
             "stream": VLLM_LOGGING_STREAM,
         },
-        # **NEW FileHandler for file output** 📄
-        "vllm_file": {
-            "class": "logging.FileHandler",
-            "formatter": "vllm",
-            "level": "INFO", # Set the desired log level for the file
-            "filename": LOG_FILE_NAME, # <-- The dynamic filename is placed here
-        },
+        # # **NEW FileHandler for file output** 📄
+        # "vllm_file": {
+        #     "class": "logging.FileHandler",
+        #     "formatter": "vllm",
+        #     "level": "INFO", # Set the desired log level for the file
+        #     "filename": LOG_FILE_NAME, # <-- The dynamic filename is placed here
+        # },
     },
     "loggers": {
         "vllm": {
             # Now includes both the stream and the new file handler
-            "handlers": ["vllm", "vllm_file"], 
+            "handlers": ["vllm"], # "vllm_file"],
             "level": "INFO",
             "propagate": False,
         },
