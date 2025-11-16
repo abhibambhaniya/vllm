@@ -807,6 +807,7 @@ async def benchmark(
             "output_lens": actual_output_lens,
             "ttfts": [output.ttft for output in outputs],
             "itls": [output.itl for output in outputs],
+            "e2els": [output.latency for output in outputs],
             "generated_texts": [output.generated_text for output in outputs],
             "errors": [output.error for output in outputs],
             "max_output_tokens_per_s": metrics.max_output_tokens_per_s,
@@ -1488,8 +1489,8 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
     if not args.save_detailed:
         # Remove fields with too many data points
         for field in [
-            "input_lens",
-            "output_lens",
+            # "input_lens",
+            # "output_lens",
             "ttfts",
             "itls",
             "generated_texts",

@@ -1840,6 +1840,7 @@ def get_samples(args, tokenizer) -> list[SampleRequest]:
                 random_seed=args.seed,
                 dataset_path=args.dataset_path,
                 disable_shuffle=args.disable_shuffle,
+                min_input_tokens=args.sharegpt_output_len,
             ).sample(
                 tokenizer=tokenizer,
                 num_requests=args.num_prompts,
@@ -2189,11 +2190,14 @@ class BurstGPTDataset(BenchmarkDataset):
 
         df = pd.read_csv(self.dataset_path)
         # Filter to keep only GPT-4 rows.
-        gpt4_df = df[df["Model"] == "GPT-4"]
-        # Remove failed requests (where Response tokens is 0 or less).
-        gpt4_df = gpt4_df[gpt4_df["Response tokens"] > 0]
-        # Sample the desired number of rows.
-        self.data = gpt4_df
+        df = df[df["ContextTokens"] < 32768]
+
+        self.data = df[['ContextTokens', 'GeneratedTokens']]
+        # gpt4_df = df[df["Model"] == "GPT-4"]
+        # # Remove failed requests (where Response tokens is 0 or less).
+        # gpt4_df = gpt4_df[gpt4_df["Response tokens"] > 0]
+        # # Sample the desired number of rows.
+        # self.data = gpt4_df
 
     def _sample_loaded_data(self, num_requests: int) -> list:
         if num_requests <= len(self.data):
@@ -2220,8 +2224,8 @@ class BurstGPTDataset(BenchmarkDataset):
         samples = []
         data = self._sample_loaded_data(num_requests=num_requests)
         for i in range(num_requests):
-            input_len = int(data[i][2])
-            output_len = int(data[i][3])
+            input_len = int(data[i][0])
+            output_len = 10 #int(data[i][1])
             lora_req = self.get_random_lora_request(
                 max_loras=max_loras, lora_path=lora_path
             )

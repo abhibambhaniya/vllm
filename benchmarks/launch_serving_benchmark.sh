@@ -31,8 +31,20 @@ elif [ "$1" = "405B" ]; then
     TP=8
 fi
 
+if [ "$2" == "sharegpt" ]; then
+    dataset_name=sharegpt
+    dataset_path=./benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json
+elif [ "$2" = "hf_code_10k" ]; then
+    dataset_name=hf
+    dataset_path=vdaita/edit_10k_char
+elif [ "$2" = "long_context" ]; then
+    dataset_name=burstgpt
+    dataset_path='./benchmarks/Long Context Summarization.csv'
+fi
+
 # Shift to remove the first argument if it exists
-if [ $# -gt 0 ]; then
+if [ $# -gt 1 ]; then
+    shift
     shift
 fi
 # Run the command with any additional arguments passed through
@@ -40,10 +52,13 @@ vllm bench serve \
     --model "$model_name" \
     --tokenizer "$model_name" \
     --endpoint /v1/completions \
-    --dataset-name sharegpt \
-    --dataset-path /data/users/abhimanyub/vllm_runtime_profile/benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json \
-    --request-rate 10.0 \
+    --dataset-name "$dataset_name" \
+    --dataset-path "$dataset_path" \
+    --request-rate 5 \
     --ready-check-timeout-sec 5 \
-    --num_prompts 2000 \
-    --min-input-tokens 50
+    --num_prompts 1000 \
+    --sharegpt-output-len 256 \
+    --hf_output_len 64 \
     "$@"
+    # --save-result --save-detailed \
+    # "$@"
