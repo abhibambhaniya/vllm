@@ -33,6 +33,38 @@ start_and_wait_for_server() {
     echo $SERVER_PID
 }
 
+start_and_wait_for_prefill_server() {
+    local model=$1
+
+    # Redirect output and properly background
+    nohup bash ./start_server.sh $model --max_num_batched_tokens 32768  > server.log 2>&1 &
+    SERVER_PID=$!
+
+    echo "Server script started with PID: $SERVER_PID for model: $model" >&2
+
+    # Better health check with timeout and verbose output
+    echo "Waiting for server to be ready..." >&2
+    MAX_WAIT=3600  # 10 minutes
+    ELAPSED=0
+
+    until curl -s -f http://localhost:8000/health > /dev/null 2>&1; do
+        if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "ERROR: Server did not become healthy within ${MAX_WAIT}s" >&2
+            echo "Server log:" >&2
+            tail -20 server.log >&2
+            kill $SERVER_PID 2>/dev/null
+            return 1
+        fi
+
+        echo "Waiting... (${ELAPSED}s elapsed)" >&2
+        sleep 20
+        ELAPSED=$((ELAPSED + 20))
+    done
+
+    echo "Server is ready!" >&2
+    echo $SERVER_PID
+}
+
 kill_gpu_processes() {
     echo "Finding GPU processes to kill..." >&2
 
@@ -59,10 +91,11 @@ kill_gpu_processes() {
 }
 
 # Model list - Fixed syntax
-model_list=( "405B" )
-# "qwen3_14B" "qwen3_32B" "L3_70B" "L2_70B" "L3_70B_TP4" "L2_70B_TP4" "deepseek"
+model_list=( "qwen7B" "qwen3_14B" "qwen3_32B" )
+# "qwen3_14B" "qwen3_32B" "L3_70B" "L2_70B" "L3_70B_TP4" "L2_70B_TP4"
 # Benchmark list
-benchmark_list=("launch_serving_benchmark_prefill.sh" "launch_serving_benchmark.sh")
+benchmark_list=("sharegpt --request-rate 10 --num_prompts 2000" "hf_code_10k --request-rate 2.5 --num_prompts 500" "long_context --request-rate 0.5 --num_prompts 100")
+benchmark_prefill_list=("sharegpt --sharegpt-output-len 1 --request-rate 10 --num_prompts 1000" "hf_code_10k --hf_output_len 1 --request-rate 4 --num_prompts 1000" "long_context --sharegpt-output-len 1 --request-rate 1 --num_prompts 200")
 
 # Outer loop: iterate over models
 for model in "${model_list[@]}"; do
@@ -77,7 +110,29 @@ for model in "${model_list[@]}"; do
         SERVER_PID=$(start_and_wait_for_server $model)
         echo "Server PID: $SERVER_PID" >&2
 
-        bash benchmarks/$benchmark $model
+        bash benchmarks/launch_serving_benchmark.sh $model $benchmark
+
+        echo "=== Benchmark complete, cleaning up ===" >&2
+
+        # Kill the shell script PID and its children
+        pkill -P $SERVER_PID 2>/dev/null
+        kill -9 $SERVER_PID 2>/dev/null
+
+        # Kill all GPU processes
+        kill_gpu_processes
+
+        echo "Waiting before next benchmark..." >&2
+        sleep 5
+    done
+
+    # Inner loop: iterate over benchmarks
+    for benchmark in "${benchmark_prefill_list[@]}"; do
+        echo "=== Running $benchmark on $model ===" >&2
+
+        SERVER_PID=$(start_and_wait_for_prefill_server $model)
+        echo "Server PID: $SERVER_PID" >&2
+
+        bash benchmarks/launch_serving_benchmark.sh $model $benchmark
 
         echo "=== Benchmark complete, cleaning up ===" >&2
 

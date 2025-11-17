@@ -336,16 +336,30 @@ class EngineCore:
                 model_output = self.model_executor.sample_tokens(grammar_output)
         end_time = time.perf_counter()
 
-        prefill_data = [
-            (
+        prefill_data = []
+        for new_reqs in scheduler_output.scheduled_new_reqs:
+            prefill_data.append((
                 new_reqs.num_computed_tokens,
-                len(new_reqs.prompt_token_ids)
-            ) for new_reqs in scheduler_output.scheduled_new_reqs
-        ]
-        cached_num_computed_tokens = scheduler_output.scheduled_cached_reqs.num_computed_tokens
-        cached_num_output_tokens = scheduler_output.scheduled_cached_reqs.num_output_tokens
+                scheduler_output.num_scheduled_tokens[new_reqs.req_id]
+            ))
+        decode_context = []
+        decode_tokens = []
+        for running_req, computed_tokens, num_decode_tokens in zip(
+            scheduler_output.scheduled_cached_reqs.req_ids,
+            scheduler_output.scheduled_cached_reqs.num_computed_tokens,
+            scheduler_output.scheduled_cached_reqs.num_output_tokens
+        ):
+            scheduled_tokens = scheduler_output.num_scheduled_tokens[running_req]
+            if scheduled_tokens > 1:
+                prefill_data.append((
+                    computed_tokens,
+                    scheduled_tokens
+                ))
+            else:
+                decode_context.append(computed_tokens)
+                decode_tokens.append(num_decode_tokens)
         elapsed_ms = (end_time - start_time) * 1000
-
+        # print(f"Scheduler Step Time: {elapsed_ms:.4f} ms; Prefill Data: {prefill_data}; Decode Data: {decode_context}, {decode_tokens}")
         # Write to CSV file
         # Check if file exists, if not, create and write header
         import os
@@ -363,8 +377,8 @@ class EngineCore:
                                 "Time (ms)"])
 
             # Remove delimiter from writerow()
-            writer.writerow([prefill_data, cached_num_computed_tokens,
-                                    cached_num_output_tokens,
+            writer.writerow([prefill_data, decode_context,
+                                    decode_tokens,
                                     f"{elapsed_ms:.4f}"])
 
 

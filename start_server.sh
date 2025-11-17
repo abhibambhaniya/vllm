@@ -32,5 +32,7 @@ elif [ "$1" = "405B" ]; then
     TP=8
 fi
 
+shift # Remove the first argument
+echo "Starting server for model $model_name with TP=$TP and additional arguments: $@" >&2
 
-with-proxy vllm serve "$model_name" --load-format dummy -tp "$TP"
+vllm serve "$model_name" --load-format dummy -tp "$TP" --max-model-len 32768 -dp 2 "$@"

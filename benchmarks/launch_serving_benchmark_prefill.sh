@@ -41,9 +41,9 @@ vllm bench serve \
     --tokenizer "$model_name" \
     --endpoint /v1/completions \
     --dataset-name sharegpt \
-    --dataset-path /data/users/abhimanyub/vllm_runtime_profile/benchmarks/ShareGPT_V3_unfiltered_cleaned_split.json \
-    --request-rate 5  --sharegpt-output-len 1 \
+    --dataset-path ./ShareGPT_V3_unfiltered_cleaned_split.json \
+    --request-rate 10  --sharegpt-output-len 1 \
     --ready-check-timeout-sec 5 \
-    --num_prompts 2000 \
+    --num_prompts 1000 \
     --min-input-tokens 50 \
     "$@"
