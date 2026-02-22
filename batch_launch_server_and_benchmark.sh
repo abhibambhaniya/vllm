@@ -91,11 +91,13 @@ kill_gpu_processes() {
 }
 
 # Model list - Fixed syntax
-model_list=( "qwen7B" "qwen3_14B" "qwen3_32B" )
+model_list=(  "qwen3_4B" "qwen7B"  "qwen3_14B" "qwen3_32B" )
 # "qwen3_14B" "qwen3_32B" "L3_70B" "L2_70B" "L3_70B_TP4" "L2_70B_TP4"
 # Benchmark list
-benchmark_list=("sharegpt --request-rate 10 --num_prompts 2000" "hf_code_10k --request-rate 2.5 --num_prompts 500" "long_context --request-rate 0.5 --num_prompts 100")
-benchmark_prefill_list=("sharegpt --sharegpt-output-len 1 --request-rate 10 --num_prompts 1000" "hf_code_10k --hf_output_len 1 --request-rate 4 --num_prompts 1000" "long_context --sharegpt-output-len 1 --request-rate 1 --num_prompts 200")
+benchmark_list=( "reasoning --request-rate 5 --num_prompts 1000" )
+# "sharegpt --request-rate 10 --num_prompts 2000" "hf_code_10k --request-rate 2.5 --num_prompts 500" "long_context --request-rate 0.5 --num_prompts 100"
+benchmark_prefill_list=( "reasoning --sharegpt-output-len  1 --request-rate 10 --num_prompts 1000" )
+# benchmark_prefill_list=("sharegpt --sharegpt-output-len 1 --request-rate 10 --num_prompts 1000" "hf_code_10k --hf_output_len 1 --request-rate 4 --num_prompts 1000" "long_context --sharegpt-output-len 1 --request-rate 1 --num_prompts 200")
 
 # Outer loop: iterate over models
 for model in "${model_list[@]}"; do

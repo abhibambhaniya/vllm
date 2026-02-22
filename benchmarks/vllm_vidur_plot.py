@@ -3,14 +3,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-with open("/home/abhimanyub/openai-5.0qps-Hermes-4-70B-20251112-105740.json", "r") as json_file:
+with open("./openai-5.0qps-Hermes-4-70B-20251112-105740.json", "r") as json_file:
     json_data = json.load(json_file)
 
 json_data_df = pd.json_normalize(json_data)
 json_data_df['tpot'] = json_data_df['itls'].apply(lambda x: [np.mean(values) for values in x])
 json_data_df.head()
 
-request_metrics_df = pd.read_csv("/home/abhimanyub/request_metrics.csv")
+request_metrics_df = pd.read_csv("./vidur_sharegpt_replica_qps5/request_metrics.csv")
 request_metrics_df.head()
 
 fig, axes = plt.subplots(1, 2, figsize=(20, 5), facecolor='white')
@@ -44,6 +44,7 @@ axes[1].legend()
 axes[1].grid(True)
 
 plt.tight_layout()
+plt.savefig("vllm_vidur_comparison.png")
 plt.show()
 
 import matplotlib.pyplot as plt
@@ -60,5 +61,5 @@ plt.xlabel('Request Idx')
 plt.ylabel('Latency (ms)')
 plt.legend()
 plt.grid(True)
-
+plt.savefig("vllm_vidur_comparison_sorted.png")
 plt.show()

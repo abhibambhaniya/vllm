@@ -11,7 +11,9 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.distributed
+import torch.distributed as dist
 import torch.nn as nn
+from torch.profiler import _ExperimentalConfig, ExecutionTraceObserver
 
 import vllm.envs as envs
 from vllm.config import VllmConfig
@@ -103,6 +105,9 @@ class Worker(WorkerBase):
                 envs.VLLM_TORCH_PROFILER_WITH_STACK,
                 envs.VLLM_TORCH_PROFILER_WITH_FLOPS,
             )
+            self.et_file = os.path.join(torch_profiler_trace_dir, f"pytorch_et_{worker_name}.json")
+            # self.et = ExecutionTraceObserver()
+            # self.et.register_callback(self.et_file)
             self.profiler = torch.profiler.profile(
                 activities=[
                     torch.profiler.ProfilerActivity.CPU,
@@ -114,6 +119,10 @@ class Worker(WorkerBase):
                 with_flops=envs.VLLM_TORCH_PROFILER_WITH_FLOPS,
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(
                     torch_profiler_trace_dir, worker_name=worker_name, use_gzip=True
+                ),
+                experimental_config=_ExperimentalConfig(enable_cuda_sync_events=True),
+                execution_trace_observer=(
+                      ExecutionTraceObserver().register_callback(self.et_file)
                 ),
             )
         else:
@@ -549,10 +558,12 @@ class Worker(WorkerBase):
                 )
             )
 
+        logger.info_once(f"Executing model: forward_pass={forward_pass}")
         with self.annotate_profile(scheduler_output):
             output = self.model_runner.execute_model(
                 scheduler_output, intermediate_tensors
             )
+            # self.profiler.step()
             if isinstance(output, (ModelRunnerOutput, NoneType)):
                 return output
 
@@ -588,10 +599,21 @@ class Worker(WorkerBase):
     def profile(self, is_start: bool = True):
         if self.profiler is None:
             raise RuntimeError("Profiler is not enabled.")
-        if is_start:
-            self.profiler.start()
-        else:
-            self.profiler.stop()
+        # if is_start:
+
+            # import threading
+            # print(f"THREAD START on Thread {threading.get_ident()}")
+
+            # self.et.start()
+
+            # self.profiler.start()
+
+        # else:
+            # print(f"THREAD STOP on Thread {threading.get_ident()}")
+            # self.profiler.stop()
+            # self.et.stop()
+            # self.et.unregister_callback()
+            # logger.info(f"Exeution trace: {self.et_file}")
             # only print profiler results on rank 0
             if self.local_rank == 0:
                 print(

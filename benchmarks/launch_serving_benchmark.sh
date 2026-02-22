@@ -40,6 +40,9 @@ elif [ "$2" = "hf_code_10k" ]; then
 elif [ "$2" = "long_context" ]; then
     dataset_name=burstgpt
     dataset_path='./benchmarks/Long Context Summarization.csv'
+elif [ "$2" = "reasoning" ]; then
+    dataset_name=burstgpt
+    dataset_path='./benchmarks/Reasoning.csv'
 fi
 
 # Shift to remove the first argument if it exists
