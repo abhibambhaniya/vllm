@@ -28,7 +28,6 @@ from itertools import islice
 import torch
 from torch import nn
 
-from vllm.attention import Attention
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import CacheConfig, VllmConfig
 from vllm.distributed import (
@@ -36,6 +35,7 @@ from vllm.distributed import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
+from vllm.model_executor.layers.attention import Attention
 from vllm.model_executor.layers.linear import (
     ColumnParallelLinear,
     QKVParallelLinear,
@@ -244,7 +244,6 @@ class JAISModel(nn.Module):
         quant_config = vllm_config.quant_config
 
         self.config = config
-        assert not config.add_cross_attention
         assert not config.scale_attn_by_inverse_layer_idx
         assert not config.reorder_and_upcast_attn
         self.embed_dim = config.hidden_size
@@ -275,19 +274,19 @@ class JAISModel(nn.Module):
             ["hidden_states"], config.n_embd
         )
 
-    def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
+    def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.wte(input_ids)
 
     def forward(
         self,
-        input_ids: torch.Tensor,
+        input_ids: torch.Tensor | None,
         position_ids: torch.Tensor,
         intermediate_tensors: IntermediateTensors | None = None,
         inputs_embeds: torch.Tensor | None = None,
     ) -> IntermediateTensors | torch.Tensor:
         if get_pp_group().is_first_rank:
             if inputs_embeds is None:
-                inputs_embeds = self.get_input_embeddings(input_ids)
+                inputs_embeds = self.embed_input_ids(input_ids)
             if self.wpe is not None:
                 position_embeds = self.wpe(position_ids)
                 hidden_states = inputs_embeds + position_embeds
@@ -339,12 +338,12 @@ class JAISLMHeadModel(nn.Module, SupportsPP):
             self.transformer.make_empty_intermediate_tensors
         )
 
-    def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
-        return self.transformer.get_input_embeddings(input_ids)
+    def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self.transformer.embed_input_ids(input_ids)
 
     def forward(
         self,
-        input_ids: torch.Tensor,
+        input_ids: torch.Tensor | None,
         positions: torch.Tensor,
         intermediate_tensors: IntermediateTensors | None = None,
         inputs_embeds: torch.Tensor | None = None,
